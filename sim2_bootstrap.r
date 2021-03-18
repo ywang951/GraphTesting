@@ -19,11 +19,9 @@ idx <- 0
 set.seed(110)
 for (n in n_list) {
   for (eps in eps_list) {
-    print(c(n, eps))
     idx <- idx + 1
     p_val_list <- c()
     for (N in 1:rep) {
-      print(N)
       prob <- GenerateProb(n, eps)
       adj <- GenerateAdj(prob$P, prob$Q)
       p_val <- Bootstrap(adj$A, adj$B, b_num = 1000, d = 3)
