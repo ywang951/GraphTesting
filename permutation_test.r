@@ -30,10 +30,6 @@ for (n in n_list) {
       }
       p_val <- PermutationTest(Alist, Blist, d = 3)
       p_val_list <- c(p_val_list, p_val)
-      if (N %%20 == 0){
-        print(c(n, eps, N, round(sum(p_val_list <= alpha) / length(p_val_list), 4)))
-      }
-      
     }
     pow <- sum(p_val_list <= alpha) / length(p_val_list)
     power[idx, ] <- c(n, eps, pow)
