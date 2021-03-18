@@ -14,8 +14,6 @@ eps_len <- length(eps_list)
 alpha <- 0.05
 rep <- 100
 power <- matrix(NA, nrow = n_len * eps_len, ncol = 3)
-power[, 1] <- rep(n_list, each = eps_len)
-power[, 2] <- rep(eps_list, n_len)
 pval_dist <- matrix(NA, nrow = rep + 1, ncol = n_len * eps_len)
 idx <- 0
 set.seed(110)
@@ -32,7 +30,7 @@ for (n in n_list) {
       p_val_list <- c(p_val_list, p_val)
     }
     pow <- sum(p_val_list <= alpha) / length(p_val_list)
-    power[idx, 3] <- pow
+    power[idx, ] <- c(n, eps, pow)
     pval_dist[1, idx] <- paste0("n", n, "_eps", eps)
     pval_dist[2:101, idx] <- p_val_list
   }
