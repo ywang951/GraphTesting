@@ -9,7 +9,7 @@ source("./functions.R")
 rep <- 100
 d <- 3
 rho <- 3
-alpha <- 0.5
+alpha <- 0.05
 set.seed(110)
 for (n in c(50, 100, 200, 500, 1000)){
   s <- rho * log(n) / n
