@@ -235,20 +235,19 @@ Simulation_2 <- function (n_list, eps_list, d = 3, alpha = 0.05, rep = 100) {
   #' @param d: low rank used in USVT
   #' @param alpha: significant level
   #' @param rep: number of replications
-  #' @return power
+  #' @return power of NMDS
   n_len <- length(n_list)
   eps_len <- length(eps_list)
-  if (!(0 %in% eps_list)) {
-      stop("eps_list must contain 0.")
+  if (eps_list[1] != 0) {
+      stop("The first value of eps_list must be 0.")
   }
-  power <- matrix(NA, nrow = n_len * (eps_len - 1)  + 1, ncol = 4)
-  power[1, ] <- c("n", "epsilon", "Proposed test", "Non-metric embedding")
+  power <- matrix(NA, nrow = n_len * (eps_len - 1)  + 1, ncol = 3)
+  power[1, ] <- c("n", "epsilon", "power")
   idx <- 1
   for (n in n_list) {
     for (eps in eps_list) {
       prob <- GenerateProb(n, eps)
       nmds.hat <- c()
-      rho.hat <- c()
       for (N in 1:rep) {
         A_bar <- matrix(0, ncol = n, nrow = n)
         B_bar <- matrix(0, ncol = n, nrow = n)
@@ -259,18 +258,14 @@ Simulation_2 <- function (n_list, eps_list, d = 3, alpha = 0.05, rep = 100) {
         }
         A_bar <- A_bar / 20
         B_bar <- B_bar / 20
-        rho <- Spearman(A_bar, B_bar, num = d, res = FALSE)
-        rho.hat <- c(rho.hat, rho)
         nmds.hat <- c(nmds.hat, Nonmetric_MDS(A_bar, B_bar))
       }
       if (eps == 0) {
-        qt_spm <- quantile(rho.hat, alpha)
         qt_nmds <- quantile(nmds.hat, 1 - alpha)
       } else{
         idx <- idx + 1
-        pow_spm <- sum(rho.hat < qt_spm) / length(rho.hat)
         pow_nmds <- sum(nmds.hat > qt_nmds) / length(nmds.hat)
-        power[idx, ] <- c(n, eps, pow_spm, pow_nmds)
+        power[idx, ] <- c(n, eps, pow_nmds)
       }
     }
   }
@@ -290,8 +285,8 @@ Simulation_3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) 
   #' @return power
   n_len <- length(n_list)
   eps_len <- length(eps_list)
-  if (!(0 %in% eps_list)) {
-      stop("eps_list must contain 0.")
+  if (eps_list[1] != 0) {
+    stop("The first value of eps_list must be 0.")
   }
   power <- matrix(NA, nrow = n_len * (eps_len - 1)  + 1, ncol = 4)
   power[1, ] <- c("n", "epsilon", "sparsity", "power")
@@ -390,9 +385,6 @@ Simulation_5 <- function(n_list, phi, link,
   #' @param d: low rank used in USVT
   #' @return power
   n_len <- length(n_list)
-  if (!(0 %in% eps_list)) {
-    stop("eps_list must contain 0.")
-  }
   power <- matrix(NA, nrow = n_len + 1, ncol = 3)
   power[1, ] <- c("n", "link", "power")
   idx <- 1
