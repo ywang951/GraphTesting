@@ -1,6 +1,7 @@
 library(ggplot2)
 library(ggthemes)
 library(ggsci)
+source("./functions.R")
 ### Simulation 1
 rst <- Simulation_1(n_list = c(50, 100, 150),
                     eps_list = seq(0, 0.1, 0.01))
