@@ -6,42 +6,17 @@ library(pracma)
 library(igraph)
 library(doBy)
 
-GenerateProb <- function(n, eps, s = 1) {
-  #' @param n: number of vertices
-  #' @param eps: epsilon
-  #' @return output: vectors of upper trianguler of true edge-probability matrices
-  X <- matrix(rnorm(2 * n), nrow = n, ncol = 2)
-  Z <- matrix(rnorm(2 * n, mean = 0, sd = sqrt(eps)), nrow = n, ncol = 2)
-  Y <- X + Z
-  D1 <- as.matrix(dist(X)^2)
-  D2 <- as.matrix(dist(Y)^2)
-  P <- s * exp(-D1^2)
-  Q <- s * exp(-D2^2 / 4)
-  output <- list()
-  output$P <- P
-  output$Q <- Q
-  return(output)
-}
-
-GenerateAdj <- function(P, Q) {
-  #' @param P,Q: edge-probability matrices
+Generate.A <- function(P) {
+  #' @param P: edge-probability matrices
   #' @return output: adjcency matrices
   n <- dim(P)[1]
   upper.tri.ind <- upper.tri(P)
   p.upper <- P[upper.tri.ind]
-  q.upper <- Q[upper.tri.ind]
   A.upper <- rbinom(n * (n - 1) / 2, 1, p.upper)
-  B.upper <- rbinom(n * (n - 1) / 2, 1, q.upper)
   A <- matrix(0, ncol = n, nrow = n)
-  B <- matrix(0, ncol = n, nrow = n)
   A[upper.tri.ind] <- A.upper
-  B[upper.tri.ind] <- B.upper
   A <- A + t(A)
-  B <- B + t(B)
-  output <- list()
-  output$A <- A
-  output$B <- B
-  return(output)
+  return(A)
 }
 
 USVT <- function(M, num, res = TRUE) {
@@ -82,68 +57,44 @@ Spearman <- function(A, B, num, res = TRUE) {
   return(output)
 }
 
-Bootstrap <- function(A, B, b_num = 1000, d = 3) {
-  #' @param A: (average) adjacency matrix from the first latent position
-  #' @param B: (average) adjacency matrix from the second latent position
+Bootstrap <- function(A, B, b_num = 1000, d, n0) {
+  #' @param A: list of adjacency matrices from the first latent position
+  #' @param B: list of adjacency matrices from the second latent position
   #' @param b_num: number of bootstrapping
   #' @param d: low rank in USVT
   #' @return p_val: p-value
+  m <- length(A)
   n <- dim(A)[1]
-  P.hat <- USVT(A, num = d)
-  Q.hat <- USVT(B, num = d)
-  rho0 <- Spearman(A, B, num = d)
-  rho1 <- c()
-  rho2 <- c()
-  for (k in 1:b_num) {
-    A_bts <- GenerateAdj(P.hat, P.hat)
-    B_bts <- GenerateAdj(Q.hat, Q.hat)
-    s1 <- Spearman(A_bts$A, A_bts$B, num = d)
-    s2 <- Spearman(B_bts$A, B_bts$B, num = d)
-    rho1 <- c(rho1, s1)
-    rho2 <- c(rho2, s2)
+  A.avg <- B.avg <- matrix(0, n, n)
+  for (k in 1:m) {
+    A.avg <- A.avg + A[[k]]
+    B.avg <- B.avg + B[[k]]
+  }
+  A.avg <- A.avg / m
+  B.avg <- B.avg / m
+  rho0 <- Spearman(A.avg, B.avg, num = d, res = FALSE)
+  rhovec1 <- rhovec2 <- numeric(b_num)
+  for (i in 1:b_num) {
+    A.perm <- B.perm <- matrix(0, n, n)
+    for (k in 1:m) {
+      A.temp <- A[[k]]
+      B.temp <- B[[k]]
+      rownames(A.temp) <- colnames(A.temp) <- seq(n)
+      rownames(B.temp) <- colnames(B.temp) <- seq(n)
+      a <- seq(n)
+      s <- sample(seq(n), n0)
+      a[sort(s)] <- s
+      A.perm <- A.perm + permutation(A.temp, a)
+      B.perm <- B.perm + permutation(B.temp, a)
     }
-  p_val <- max(sum(rho0 > rho1) / b_num, sum(rho0 > rho2) / b_num)
-  return(p_val)
+    rhovec1[i] <- Spearman(A.avg, A.perm/m, num = d, res = FALSE)
+    rhovec2[i] <- Spearman(B.avg, B.perm/m, num = d, res = FALSE)
+  }
+  pval1 <- sum(rho0 > rhovec1) / b_num
+  pval2 <- sum(rho0 > rhovec2) / b_num
+  return(max(pval1, pval2))
 }
 
-PermutationTest <- function(list1, list2, p_num = 1000, d = 3) {
-  #' @param list1, list2: lists of adjacency matrices
-  #' @param p_num: number of permutations
-  #' @param d: low rank in USVT
-  #' @return pvalue: p-value
-  `%notin%` <- Negate(`%in%`)
-  nlist <- length(list1)
-  n <- dim(list1[[1]])[1]
-  A_bar_1 <- matrix(0, n, n)
-  A_bar_2 <- matrix(0, n, n)
-  for (i in 1:nlist) {
-    A_bar_1 <- A_bar_1 + list1[[i]]
-    A_bar_2 <- A_bar_2 + list2[[i]]
-  }
-  A_bar_1 <- A_bar_1 / nlist
-  A_bar_2 <- A_bar_2 / nlist
-  rho <- Spearman(A_bar_1, A_bar_2, num = d, res = FALSE)
-  rho.hat <- c()
-  combine.list <- c(list1, list2)
-  for (i in 1:p_num) {
-    relabel <- sample(1:(nlist * 2), nlist, replace = FALSE)
-    A.perm <- matrix(0, n, n)
-    B.perm <- matrix(0, n, n)
-    for (j in 1:(nlist * 2)) {
-      if (j %in% relabel) {
-        A.perm <- A.perm + combine.list[[j]]
-      }else{
-        B.perm <- B.perm + combine.list[[j]]
-      }
-    }
-    A.perm_bar <- A.perm / nlist
-    B.perm_bar <- B.perm / nlist
-    rst <- Spearman(A.perm_bar, B.perm_bar, num = d, res = FALSE)
-    rho.hat <- c(rho.hat, rst)
-  }
-  pvalue <- sum(rho.hat < rho) / length(rho.hat)
-  return(pvalue)
-}
 
 Nonmetric_MDS <- function(A, B) {
   #' @param A, B: average adjacency matrices
@@ -162,106 +113,105 @@ Nonmetric_MDS <- function(A, B) {
   output <- min(sqrt(Tx$ss), sqrt(Ty$ss))
   return(output)
 }
-
-Simulation_1 <- function(n_list, eps_list, d = 3, alpha = 0.05, rep = 100) {
-  #' @param n_list: list of n
-  #' @param eps_list: list of epsilon
-  #' @param d: low rank used in USVT
-  #' @param alpha: significant level
-  #' @param rep: number of replications
-  #' @return power
-  n_len <- length(n_list)
-  eps_len <- length(eps_list)
-  power <- matrix(NA, nrow = n_len * eps_len * 2 + 1, ncol = 4)
-  power[1, ] <- c("n", "epsilon", "power", "methods")
-  pval_dist <- matrix(NA, nrow = rep + 1, ncol = n_len * 2)
-  idx <- 1
-  idx2 <- 0
-  for (n in n_list) {
-    for (eps in eps_list) {
-      p_val_list <- c()
-      for (N in 1:rep) {
-        prob <- GenerateProb(n, eps)
-        Alist <- list()
-        Blist <- list()
-        for (j in 1:20) {
-          adj <- GenerateAdj(prob$P, prob$Q)
-          Alist[[j]] <- adj$A
-          Blist[[j]] <- adj$B
-        }
-        p_val <- PermutationTest(Alist, Blist, d)
-        p_val_list <- c(p_val_list, p_val)
-      }
-      pow <- sum(p_val_list <= alpha) / length(p_val_list)
-      idx <- idx + 1
-      power[idx, ] <- c(n, eps, pow, "Permutation Test")
-      if (eps == 0) {
-        idx2 <- idx2 + 1
-        pval_dist[1, idx2] <- paste0("n", n, "_perm")
-        pval_dist[2:(rep + 1), idx2] <- p_val_list
-      }
-      p_val_list <- c()
-      for (N in 1:rep) {
-        prob <- GenerateProb(n, eps)
-        adj <- GenerateAdj(prob$P, prob$Q)
-        p_val <- Bootstrap(adj$A, adj$B, b_num = 1000, d)
-        p_val_list <- c(p_val_list, p_val)
-      }
-    pow <- sum(p_val_list <= alpha) / length(p_val_list)
-    idx <- idx + 1
-    power[idx, ] <- c(n, eps, pow, "Bootstrap")
-    if (eps == 0) {
-        idx2 <- idx2 + 1
-        pval_dist[1, idx2] <- paste0("n", n, "_boots")
-        pval_dist[2:(rep + 1), idx2] <- p_val_list
+permutation <- function(network, namesequence) {
+  # from package GraphAlignment, which is not compatible with my system
+  if (dim(network)[1] != length(namesequence)) {
+    stop("Dimension of network and length of namesequence must be equal.")
+  }
+  if (length(unique(namesequence)) < dim(network)[1]) {
+    stop("Each name in namesequence must be different.")
+  }
+  newnetwork <- network
+  while (!all(rownames(newnetwork) == namesequence)) {
+    for (i in 1:dim(network)[1]) {
+      if (rownames(network)[i] != namesequence[i]) {
+        columnposition <- which(rownames(network) == namesequence[i])
+        newnetwork[, i] <- network[, columnposition]
+        newnetwork[, columnposition] <- network[, i]
+        tempcolumn <- newnetwork[i, ]
+        newnetwork[i, ] <- newnetwork[columnposition, ]
+        newnetwork[columnposition, ] <- tempcolumn
+        temprowname <- colnames(newnetwork)[i]
+        colnames(newnetwork)[i] <- rownames(network)[columnposition]
+        rownames(newnetwork)[i] <- rownames(network)[columnposition]
+        colnames(newnetwork)[columnposition] <- temprowname
+        rownames(newnetwork)[columnposition] <- temprowname
+        network <- newnetwork
       }
     }
   }
-  output <- list()
-  power <- as.data.frame(power)
-  names(power) <- power[1, ]
-  power <- power[-1, ]
-  pval_dist <- as.data.frame(pval_dist)
-  names(pval_dist) <- pval_dist[1, ]
-  pval_dist <- pval_dist[-1, ]
-  output$pow <- power
-  output$pval <- pval_dist
-  return(output)
+  newnetwork
 }
 
-Simulation_2 <- function (n_list, eps_list, d = 3, alpha = 0.05, rep = 100) {
-  #' @param n_list: list of n
-  #' @param eps_list: list of epsilon
-  #' @param d: low rank used in USVT
-  #' @param alpha: significant level
-  #' @param rep: number of replications
-  #' @return power of NMDS
+Simulation1 <- function(n, m, eps = 0, d, rep = 100, n0) {
+  set.seed(110)
+  pval_list <- c()
+  for (N in 1:rep) {
+    X <- matrix(rnorm(2 * n), nrow = n, ncol = 2)
+    D1 <- as.matrix(dist(X)^2)
+    Z <- matrix(rnorm(2 * n, sd = sqrt(eps)), nrow = n, ncol = 2)
+    D2 <- as.matrix(dist(X + Z)^2)
+    P <- exp(-D1^2)
+    Q <- exp(-D2^2 / 2)
+    A <- B <- list()
+    for (k in 1:m) {
+      A[[k]] <- Generate.A(P)
+      B[[k]] <- Generate.A(Q)
+    }
+    pval <- Bootstrap(A, B, d, n0)
+    pval_list <- c(pval_list, pval)
+  }
+  return(pval_list)
+}
+
+Simulation2.Bootstrap <- function(n, eps, d, rep = 100, n0, alpha) {
+  pval_list <- c()
+  for (N in 1:rep) {
+    X <- matrix(rnorm(2 * n), nrow = n, ncol = 2)
+    D1 <- as.matrix(dist(X)^2)
+    Z <- matrix(rnorm(2 * n, sd = sqrt(eps)), nrow = n, ncol = 2)
+    D2 <- as.matrix(dist(X + Z)^2)
+    P <- exp(-D1^2)
+    Q <- exp(-D2^2 / 2)
+    A[[1]] <- Generate.A(P)
+    B[[1]] <- Generate.A(Q)
+    pval <- Bootstrap(A, B, d, n0)
+    pval_list <- c(pval_list, pval)
+  }
+  power <- sum(pval_list <= alpha) / length(pval_list)
+  return(power)
+}
+
+Simulation2.NMDS <- function(n_list, eps_list, alpha = 0.05, rep = 100) {
   n_len <- length(n_list)
   eps_len <- length(eps_list)
-  if (eps_list[1] != 0) {
-      stop("The first value of eps_list must be 0.")
+  if (!(0 %in% eps_list)) {
+      stop("eps_list must contain 0.")
   }
   power <- matrix(NA, nrow = n_len * (eps_len - 1)  + 1, ncol = 3)
-  power[1, ] <- c("n", "epsilon", "power")
+  power[1, ] <- c("n", "epsilon", "Non-metric embedding")
   idx <- 1
   for (n in n_list) {
+    X <- matrix(rnorm(2 * n), nrow = n, ncol = 2)
+    D1 <- as.matrix(dist(X)^2)
+    P <- exp(-D1^2)
     for (eps in eps_list) {
-      prob <- GenerateProb(n, eps)
+      Z <- matrix(rnorm(2 * n, sd = sqrt(eps)), nrow = n, ncol = 2)
+      D2 <- as.matrix(dist(X + Z)^2)
+      Q <- exp(-D2^2 / 2)
       nmds.hat <- c()
       for (N in 1:rep) {
         A_bar <- matrix(0, ncol = n, nrow = n)
         B_bar <- matrix(0, ncol = n, nrow = n)
         for (b in 1:20) {
-          adj <- GenerateAdj(prob$P, prob$Q)
-          A_bar <- A_bar + adj$A
-          B_bar <- B_bar + adj$B
+          A_bar <- A_bar + Generate.A(P)
+          B_bar <- B_bar + Generate.A(Q)
         }
-        A_bar <- A_bar / 20
-        B_bar <- B_bar / 20
-        nmds.hat <- c(nmds.hat, Nonmetric_MDS(A_bar, B_bar))
+        nmds.hat <- c(nmds.hat, Nonmetric_MDS(A_bar/20, B_bar/20))
       }
       if (eps == 0) {
         qt_nmds <- quantile(nmds.hat, 1 - alpha)
+        power[idx, ] <- c(n, eps, alpha)
       } else{
         idx <- idx + 1
         pow_nmds <- sum(nmds.hat > qt_nmds) / length(nmds.hat)
@@ -275,7 +225,8 @@ Simulation_2 <- function (n_list, eps_list, d = 3, alpha = 0.05, rep = 100) {
   return(power)
 }
 
-Simulation_3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) {
+
+Simulation3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) {
   #' @param n_list: list of n
   #' @param eps_list: list of epsilon
   #' @param rho: parameter controling sparsity
@@ -285,21 +236,25 @@ Simulation_3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) 
   #' @return power
   n_len <- length(n_list)
   eps_len <- length(eps_list)
-  if (eps_list[1] != 0) {
-    stop("The first value of eps_list must be 0.")
+  if (!(0 %in% eps_list)) {
+      stop("eps_list must contain 0.")
   }
   power <- matrix(NA, nrow = n_len * (eps_len - 1)  + 1, ncol = 4)
   power[1, ] <- c("n", "epsilon", "sparsity", "power")
   idx <- 1
   for (n in n_list) {
     s <- rho * log(n) / n
+    X <- matrix(rnorm(2 * n), nrow = n, ncol = 2)
+    D1 <- as.matrix(dist(X)^2)
+    P <- s * exp(-D1^2)
     for (eps in eps_list) {
-      set.seed(110)
-      prob <- GenerateProb(n, eps, s)
+      Z <- matrix(rnorm(2 * n, sd = sqrt(eps)), nrow = n, ncol = 2)
+      D2 <- as.matrix(dist(X + Z)^2)
+      Q <- s * exp(-D2^2 / 4)
       rho.hat <- c()
       for (N in 1:rep) {
-        adj <- GenerateAdj(prob$P, prob$Q)
-        rho.hat <- c(rho.hat, Spearman(adj$A, adj$B, num = d))
+        rho0 <- Spearman(Generate.A(P), Generate.A(Q), num = d)
+        rho.hat <- c(rho.hat, rho0)
       }
        if (eps == 0) {
         qt <- quantile(rho.hat, alpha)
@@ -313,7 +268,7 @@ Simulation_3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) 
   return(power)
 }
 
-Simulation_4 <- function(nlist, slist, d = 3, tau = 0.7, rep = 100) {
+Simulation4 <- function(nlist, slist, d = 3, tau = 0.7, rep = 100) {
   #' @param nlist: list of n
   #' @param slist: list of s
   #' @param d: low rank used in USVT
@@ -345,9 +300,8 @@ Simulation_4 <- function(nlist, slist, d = 3, tau = 0.7, rep = 100) {
         rank_impt <- c()
         rank_impt_all <- c()
         for (N in 1:rep) {
-          adj <- GenerateAdj(P, Q)
-          P.hat <- USVT(adj$A, num = d)
-          Q.hat <- USVT(adj$B, num = d)
+          P.hat <- USVT(Generate.A(P), num = d)
+          Q.hat <- USVT(Generate.A(Q), num = d)
           phat.upper <- P.hat[upper.tri(P.hat)]
           qhat.upper <- Q.hat[upper.tri(Q.hat)]
           phat.rank <- rank(phat.upper, ties.method = "average")
@@ -375,7 +329,7 @@ Simulation_4 <- function(nlist, slist, d = 3, tau = 0.7, rep = 100) {
   return(as.data.frame(df))
 }
 
-Simulation_5 <- function(n_list, phi, link,
+Simulation5 <- function(n_list, phi, link,
                          alpha = 0.05, rep = 100, d = 3) {
   #' @param n_list: list of n
   #' @param phi: bandwidth in gaussian kernel
@@ -385,6 +339,9 @@ Simulation_5 <- function(n_list, phi, link,
   #' @param d: low rank used in USVT
   #' @return power
   n_len <- length(n_list)
+  if (!(0 %in% eps_list)) {
+    stop("eps_list must contain 0.")
+  }
   power <- matrix(NA, nrow = n_len + 1, ncol = 3)
   power[1, ] <- c("n", "link", "power")
   idx <- 1
@@ -400,17 +357,15 @@ Simulation_5 <- function(n_list, phi, link,
     }
     rho.hat <- c()
     for (N in 1:rep) {
-      adj <- GenerateAdj(P, P)
-      P.hat <- USVT(adj$A, num = d)
-      Q.hat <- USVT(adj$B, num = d)
+      P.hat <- USVT(Generate.A(P), num = d)
+      Q.hat <- USVT(Generate.A(P), num = d)
       rho.hat <- c(rho.hat, norm(P.hat - Q.hat))
     }
     qt <- quantile(rho.hat, 1 - alpha)
     rho.hat <- c()
     for (N in 1:rep) {
-      adj <- GenerateAdj(P, Q)
-      P.hat <- USVT(adj$A, num = d)
-      Q.hat <- USVT(adj$B, num = d)
+      P.hat <- USVT(Generate.A(P), num = d)
+      Q.hat <- USVT(Generate.A(Q), num = d)
       rho.hat <- c(rho.hat, norm(P.hat - Q.hat))
     }
     idx <- idx + 1
