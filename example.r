@@ -1,41 +1,30 @@
 library(ggplot2)
 library(ggthemes)
 library(ggsci)
-source("./functions.R")
+library(gap)
 ### Simulation 1
-rst <- Simulation_1(n_list = c(50, 100, 150),
-                    eps_list = seq(0, 0.1, 0.01))
+pval_list <- Simulation1(n = 100, m = 5, eps = 0, d = 2, n0 = 5)
+qqunif(pval_list, type = "unif", logscale = FALSE)
 
-dt_fig1 <- rst$pow
-dt_fig1$n <- as.factor(dt_fig1$n)
+### Simulation 2 - Bootstrap
+for (eps in seq(0.01, 0.05, by = 0.005)) {
+  power <- Simulation2.Bootstrap(n = 100, eps, d = 2, n0 = 8, alpha = 0.05)
+  print(c(eps, power))
+}
 
-fig1 <- ggplot(dt, aes(x = epsilon, y = power)) +
-  geom_line(aes(color = n), size = 1) +
-  geom_point(size = 2.2, aes(color = n), shape = 21, fill = "white") +
-  scale_color_manual(values = c("olivedrab", "navy", "orange")) +
-  labs(x = "epsilon", y = "power") + theme_bw() +
-  facet_grid(cols = vars(methods))
-fig1
-dt_fig2 <- rst$pval
-fig2_sub1 <- ggplot(dt_fig2, aes(x = n20_boots)) +
- geom_histogram(aes(y = ..count..), colour = "black", fill = "white") +
- geom_density(alpha = .2, fill = "#FF6666") + xlab("p-values") + ylab("Density")
-
-fig2_sub2 <- ggplot(dt_fig2, aes(x = n20_perm)) +
- geom_histogram(aes(y = ..count..), colour = "black", fill = "white") +
- geom_density(alpha = .2, fill = "#FF6666") + ylim(c(0, 8)) +
- xlab("p-values") + ylab("Density")
-
-### Simulation 2
-Simulation_2(n_list = c(50, 100, 150), eps_list = seq(0, 0.1, 0.01))
+### Simulation 2 - NMDS
+n_list <- c(50, 100, 150)
+eps_list <- seq(0, 0.1, 0.01)
+rst <- Simulation2.NMDS(n_list, eps_list, alpha = 0.05)
+print(rst)
 
 ### Simulation 3
-Simulation_3(n_list = c(100, 200, 500, 1000),
+Simulation3(n_list = c(100, 200, 500, 1000),
              eps_list = c(0, 0.02, 0.1, 0.2, 0.5, 1), rho = 5)
 
 
 ### Simulation 4
-dt <- Simulation_4(nlist = seq(100, 1000, 1000),
+dt <- Simulation4(nlist = seq(100, 1000, 1000),
                    slist = c(20, 40, 60), d = 3, tau = 0.7)
 
 # plots for simulation 5, please change the parameters correspondingly
@@ -99,10 +88,10 @@ plt4_all +
         y = "Averaged median rank of Procrustes distance")
 
 ### Simulation 5
-for(phi in c(0.8, 1.5, 2, 4)){
-  rst <- Simulation_5(n_list = c(50, 100, 200, 500, 1000),
+for(phi in c(0.8, 1.5, 2, 4)) {
+  rst <- Simulation5(n_list = c(50, 100, 200, 500, 1000),
                        phi = phi, link = "gaussian")
   print(rst)
 }
-Simulation_5(n_list = c(50, 100, 200, 500, 1000),
+Simulation5(n_list = c(50, 100, 200, 500, 1000),
               link = "logistic")
