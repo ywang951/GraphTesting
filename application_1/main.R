@@ -1,8 +1,7 @@
 # prepocessing
-#setwd("")
 source("../functions.R")
 pt <- read.table("./participants.csv", sep = ",",
-                header = TRUE, stringsAsFactors = FALSE)
+                 header = TRUE, stringsAsFactors = FALSE)
 n <- dim(pt)[1]
 you_id <- c()
 mid_id <- c()
@@ -51,90 +50,149 @@ for (file in files) {
 }
 
 # function used in comparison
-Comparison <- function(list1, list2, rep = 100) {
+Comparison <- function(list1, list2, rep = 100, n0, d) {
   #' @param list1, list2: two lists of adjacency matrices
   #' @return rst: including estimated test statistics and power
-  combine_list <- c(list1, list2)
-  n <- length(combine_list)
   num1 <- length(list1)
   num2 <- length(list2)
-
-  dt <- list()
-  A1 <- matrix(0, nrow = 131, ncol = 131)
-  A2 <- matrix(0, nrow = 131, ncol = 131)
+  n <- 128
+  A <- list()
+  B <- list()
+  A1 <- A2 <- matrix(0, n, n)
+  i <- 1
   for (file in list1) {
     A_temp <- read.csv(file, header = FALSE)
-    A_temp <- as.matrix(A_temp)
+    A_temp <- as.matrix(A_temp)[-c(1, 2, 60), -c(1, 2, 60)]
     diag(A_temp) <- 0
     A1 <- A1 + A_temp
+    A[[i]] <- A_temp
+    i <- i + 1
   }
+  i <- 1
   for (file in list2) {
     A_temp <- read.csv(file, header = FALSE)
-    A_temp <- as.matrix(A_temp)
+    A_temp <- as.matrix(A_temp)[-c(1, 2, 60), -c(1, 2, 60)]
     diag(A_temp) <- 0
     A2 <- A2 + A_temp
+    B[[i]] <- A_temp
+    i <- i + 1
   }
-  Abar1 <- A1[-c(1, 2, 60), -c(1, 2, 60)] / num1
-  Abar2 <- A2[-c(1, 2, 60), -c(1, 2, 60)] / num2
-  rho <- Spearman(Abar1, Abar2, num = 3, res = FALSE)
-  rho.hat <- c()
-  rep <- 100
-  set.seed(110)
+  Abar1 <- A1 / num1
+  Abar2 <- A2 / num2
+  rho <- Spearman(Abar1, Abar2, num = d, res = FALSE)
+  set.seed(3962)
+  rhovec1 <- rhovec2 <- numeric(rep)
   for (i in 1:rep) {
-    relabel <- sample(1:n, num1, replace = FALSE)
-    A.perm <- matrix(0, nrow = 131, ncol = 131)
-    B.perm <- matrix(0, nrow = 131, ncol = 131)
-    for (file in combine_list) {
-      if (file %in% combine_list[relabel]) {
-        A_temp <- list()
-        A_temp <- read.csv(file, header = FALSE)
-        A_temp <- as.matrix(A_temp)
-        diag(A_temp) <- 0
-        A.perm <- A.perm + A_temp
-      }else{
-        B_temp <- list()
-        B_temp <- read.csv(file, header = FALSE)
-        B_temp <- as.matrix(B_temp)
-        diag(B_temp) <- 0
-        B.perm <- B.perm + B_temp
+    A.perm <- B.perm <- matrix(0, n, n)
+    for (k in 1:max(num1, num2)) {
+      if (k <= num1 & k <= num2) {
+        A.temp <- A[[k]]
+        rownames(A.temp) <- colnames(A.temp) <- seq(n)
+        a <- seq(n)
+        s <- sample(seq(n), n0)
+        a[sort(s)] <- s
+        A.perm <- A.perm + permutation(A.temp, a)
+        B.temp <- B[[k]]
+        rownames(B.temp) <- colnames(B.temp) <- seq(n)
+        B.perm <- B.perm + permutation(B.temp, a)
+      }
+      if (k > num1 & k <= num2) {
+        B.temp <- B[[k]]
+        rownames(B.temp) <- colnames(B.temp) <- seq(n)
+        a <- seq(n)
+        s <- sample(seq(n), n0)
+        a[sort(s)] <- s
+        B.perm <- B.perm + permutation(B.temp, a)
+      }
+      if (k <= num1 & k > num2) {
+        A.temp <- A[[k]]
+        rownames(A.temp) <- colnames(A.temp) <- seq(n)
+        a <- seq(n)
+        s <- sample(seq(n), n0)
+        a[sort(s)] <- s
+        A.perm <- A.perm + permutation(A.temp, a)
       }
     }
-    A.perm_bar <- A.perm[-c(1, 2, 60), -c(1, 2, 60)] / num1
-    B.perm_bar <- B.perm[-c(1, 2, 60), -c(1, 2, 60)] / num2
-    rst <- Spearman(A.perm_bar, B.perm_bar, num = 3, res = FALSE)
-    rho.hat <- c(rho.hat, rst)
+    rhovec1[i] <- Spearman(Abar1, A.perm/num1, num = d, res = FALSE)
+    rhovec2[i] <- Spearman(Abar2, B.perm/num2, num = d, res = FALSE)
   }
-  pval <- sum(rho.hat < rho) / length(rho.hat)
-  rst <- data.frame("rho.hat" = rho.hat,
+  pval1 <- sum(rhovec1 < rho) / length(rhovec1)
+  pval2 <- sum(rhovec2 < rho) / length(rhovec2)
+  rst <- data.frame("rho.hat1" = rhovec1,
+                    "rho.hat2" = rhovec2,
                     "rho" = rho,
-                    "p-value" = pval)
+                    "p.value" = max(pval1, pval2))
   return(rst)
 }
 
+
 # Figure 4
-rst_old_you <- Comparison(old_list, you_list)
-rst_old_mid <- Comparison(old_list, mid_list)
-rst_you_mid <- Comparison(you_list, mid_list)
+rst_old_you <- Comparison(old_list, you_list, rep = 100, n0 = 4, d = 3)
+rst_old_mid <- Comparison(old_list, mid_list, rep = 100, n0 = 4, d = 3)
+rst_you_mid <- Comparison(you_list, mid_list, rep = 100, n0 = 4, d = 3)
+
+vec1 <- rep(NA, 100)
+idx1 <- which(rst_old_you$rho.hat1 < rst_old_you$rho.hat2)
+idx2 <- which(rst_old_you$rho.hat1 >= rst_old_you$rho.hat2)
+vec1[idx1] <- rst_old_you$rho.hat1[idx1]
+vec1[idx2] <- rst_old_you$rho.hat2[idx2]
+rst_old_you$rho.hat <- vec1
+rst_old_you$rho[1]
+
+vec2 <- rep(NA, 100)
+idx1 <- which(rst_old_mid$rho.hat1 < rst_old_mid$rho.hat2)
+idx2 <- which(rst_old_mid$rho.hat1 >= rst_old_mid$rho.hat2)
+vec2[idx1] <- rst_old_mid$rho.hat1[idx1]
+vec2[idx2] <- rst_old_mid$rho.hat2[idx2]
+rst_old_mid$rho.hat <- vec2
+rst_old_mid$rho[1]
+
+vec3 <- rep(NA, 100)
+idx1 <- which(rst_you_mid$rho.hat1 < rst_you_mid$rho.hat2)
+idx2 <- which(rst_you_mid$rho.hat1 >= rst_you_mid$rho.hat2)
+vec3[idx1] <- rst_you_mid$rho.hat1[idx1]
+vec3[idx2] <- rst_you_mid$rho.hat2[idx2]
+rst_you_mid$rho.hat <- vec3
+rst_you_mid$rho[1]
+
+rho <- c(rst_old_you$rho.hat, rst_old_mid$rho.hat, rst_you_mid$rho.hat)
+method <- c(rep("oldyoung", 100), rep("oldmid", 100), rep("midyoung", 100))
+dt <- data.frame(rho, method)
+dt$facets <- factor(dt$method, labels = c("H[0]:~X[middle]==X[young]",
+                      "H[0]:~X[old]==X[middle]", "H[0]:~X[old]==X[young]"))
+
+dt_text <- data.frame(
+  label = c("observed~T[n]==0.9932", "observed~T[n]==0.6871",
+            "observed~T[n]==0.6751"),
+  facets = c("H[0]:~X[middle]==X[young]",
+                      "H[0]:~X[old]==X[middle]", "H[0]:~X[old]==X[young]")
+)
+dt_text_2 <- data.frame(
+  label = c("p-value==0.11", "p-value==0", "p-value==0"),
+  facets = c("H[0]:~X[middle]==X[young]",
+                      "H[0]:~X[old]==X[middle]", "H[0]:~X[old]==X[young]")
+)
 
 library(ggplot2)
-p1 <- ggplot(rst_old_you, aes(x = rho.hat, ..scaled..)) +
+fig <- ggplot(dt, aes(x = rho, ..scaled..)) +
   geom_histogram(aes(y = ..count..), colour = "black", fill = "white") +
   xlab(expression(paste("Estimated ", T[paste(n)], " under the null"))) +
-  ylab("Frequencies") +
-  geom_point(aes(x = rho, y = 0), colour = "blue")
-p1
-p2 <- ggplot(rst_old_mid, aes(x = rho.hat)) +
-  geom_histogram(aes(y = ..count..), colour = "black", fill = "white") +
-  xlab(expression(paste("Estimated ", T[paste(n)], " under the null"))) +
-  ylab("Frequencies") +
-  geom_point(aes(x = rho, y = 0), colour = "blue")
-p2
-p3 <- ggplot(rst_you_mid, aes(x = rho.hat, ..scaled..)) +
-   geom_histogram(aes(y = ..count..), colour = "black", fill = "white") +
-  xlab(expression(paste("Estimated ", T[paste(n)], " under the null"))) +
-  ylab("Frequencies") +
-  geom_point(aes(x = rho, y = 0), colour = "blue")
-p3
+  ylab("Frequency")
+
+tiff("lifespan.tiff", units = "in", width = 15/2.3, height = 5/2.3, res = 300)
+fig + facet_grid(~facets, labeller = label_parsed) + 
+      theme(strip.text.x = element_text(size = 10, family = "sans")) +
+      geom_text(data = dt_text,
+                mapping = aes(x = -Inf, y = Inf, label = label),
+                hjust = -0.06, vjust = 1.5,
+                family = "mono", parse = TRUE, size = 3.5, color = "red"
+      ) +
+      geom_text(data = dt_text_2,
+                mapping = aes(x = -Inf, y = Inf, label = label),
+                hjust = -0.1, vjust = 3,
+                family = "mono", parse = TRUE, size = 3.5, color = "red"
+      )
+dev.off()
 
 # Table C.1
 oldvsyou_list <- c(old_list, you_list)
@@ -146,14 +204,14 @@ num_you <- length(you_list)
 A_old <- matrix(0, nrow = 131, ncol = 131)
 A_you <- matrix(0, nrow = 131, ncol = 131)
 
-for (file in old_list){
+for (file in old_list) {
   A_temp <- read.csv(file, header = FALSE)
   A_temp <- as.matrix(A_temp)
   diag(A_temp) <- 0
   A_old <- A_old + A_temp
 }
 
-for (file in you_list){
+for (file in you_list) {
   A_temp <- read.csv(file, header = FALSE)
   A_temp <- as.matrix(A_temp)
   diag(A_temp) <- 0
