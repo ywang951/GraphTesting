@@ -49,10 +49,79 @@ for (file in files) {
   }
 }
 
-# function used in comparison
-Comparison <- function(list1, list2, rep = 100, n0, d) {
-  #' @param list1, list2: two lists of adjacency matrices
+# The function used to choose n0
+choose_n0 <- function(file_list, N, n0, d) {
+  #' @param file_list: a list of files
   #' @return rst: including estimated test statistics and power
+  num <- length(file_list)
+  Alist <- list()
+  for (k in 1:num) {
+    file <- file_list[[k]]
+    A_temp <- read.csv(file, header = FALSE)
+    A_temp <- as.matrix(A_temp)[-c(1, 2, 60), -c(1, 2, 60)]
+    diag(A_temp) <- 0
+    Alist[[k]] <- A_temp
+  }
+  n <- dim(Alist[[1]])[1]
+  relabel1 <- sample(seq(num), num, replace = TRUE)
+  relabel2 <- sample(seq(num), num, replace = TRUE)
+  A <- B <- list()
+  A.bar <- B.bar <- matrix(0, n, n)
+  for (i in 1:num) {
+    idx1 <- relabel1[i]
+    A[[i]] <- Alist[[idx1]]
+    A.bar <- A.bar + Alist[[idx1]]
+    idx2 <- relabel2[i]
+    B[[i]] <- Alist[[idx2]]
+    B.bar <- B.bar + Alist[[idx2]]
+  }
+  A.bar <- A.bar / num
+  B.bar <- B.bar / num
+
+  rho <- Spearman(A.bar, B.bar, num = d, res = FALSE)
+  rhovec1 <- rhovec2 <- numeric(N)
+  for (b in 1:N) {
+    A.perm <- B.perm <- matrix(0, n, n)
+    for (k in 1:num) {
+      A.temp <- A[[k]]
+      rownames(A.temp) <- colnames(A.temp) <- seq(n)
+      a <- seq(n)
+      s <- sample(seq(n), n0)
+      a[sort(s)] <- s
+      A.perm <- A.perm + permutation(A.temp, a)
+      B.temp <- B[[k]]
+      rownames(B.temp) <- colnames(B.temp) <- seq(n)
+      B.perm <- B.perm + permutation(B.temp, a)
+    }
+    A.perm <- A.perm / num
+    B.perm <- B.perm / num
+    rhovec1[b] <- Spearman(A.bar, A.perm, num = d, res = FALSE)
+    rhovec2[b] <- Spearman(B.bar, B.perm, num = d, res = FALSE)
+  }
+  pval1 <- sum(rhovec1 < rho) / length(rhovec1)
+  pval2 <- sum(rhovec2 < rho) / length(rhovec2)
+  rst <- data.frame("rho.hat1" = rhovec1,
+                    "rho.hat2" = rhovec2,
+                    "rho" = rho,
+                    "p.value" = max(pval1, pval2))
+  return(rst)
+}
+# An example to choose n0
+d <- 3
+n0 <- 5
+N <- 1000
+repN <- 100
+
+for (i = 1:repN) {
+   rst <- choose_n0(file_list = old_list, N, n0, d)
+   pval[i] <- rst$p.value[1]
+   print(c(i, pval[i]))
+}
+
+# The function used in comparison
+Comparison <- function(list1, list2, rep, n0, d) {
+  #' @param list1, list2: two lists of adjacency matrices
+  #' @return rst: including the observed test statistic, estimated test statistics and p-value
   num1 <- length(list1)
   num2 <- length(list2)
   n <- 128
@@ -127,11 +196,12 @@ Comparison <- function(list1, list2, rep = 100, n0, d) {
 
 
 # Figure 4
-rst_old_you <- Comparison(old_list, you_list, rep = 100, n0 = 4, d = 3)
-rst_old_mid <- Comparison(old_list, mid_list, rep = 100, n0 = 4, d = 3)
-rst_you_mid <- Comparison(you_list, mid_list, rep = 100, n0 = 4, d = 3)
+rep <- 1000
+rst_old_you <- Comparison(old_list, you_list, rep, n0 = 4, d = 3)
+rst_old_mid <- Comparison(old_list, mid_list, rep, n0 = 4, d = 3)
+rst_you_mid <- Comparison(you_list, mid_list, rep, n0 = 4, d = 3)
 
-vec1 <- rep(NA, 100)
+vec1 <- rep(NA, rep)
 idx1 <- which(rst_old_you$rho.hat1 < rst_old_you$rho.hat2)
 idx2 <- which(rst_old_you$rho.hat1 >= rst_old_you$rho.hat2)
 vec1[idx1] <- rst_old_you$rho.hat1[idx1]
@@ -139,7 +209,7 @@ vec1[idx2] <- rst_old_you$rho.hat2[idx2]
 rst_old_you$rho.hat <- vec1
 rst_old_you$rho[1]
 
-vec2 <- rep(NA, 100)
+vec2 <- rep(NA, rep)
 idx1 <- which(rst_old_mid$rho.hat1 < rst_old_mid$rho.hat2)
 idx2 <- which(rst_old_mid$rho.hat1 >= rst_old_mid$rho.hat2)
 vec2[idx1] <- rst_old_mid$rho.hat1[idx1]
@@ -147,7 +217,7 @@ vec2[idx2] <- rst_old_mid$rho.hat2[idx2]
 rst_old_mid$rho.hat <- vec2
 rst_old_mid$rho[1]
 
-vec3 <- rep(NA, 100)
+vec3 <- rep(NA, rep)
 idx1 <- which(rst_you_mid$rho.hat1 < rst_you_mid$rho.hat2)
 idx2 <- which(rst_you_mid$rho.hat1 >= rst_you_mid$rho.hat2)
 vec3[idx1] <- rst_you_mid$rho.hat1[idx1]
