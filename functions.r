@@ -143,35 +143,6 @@ Nonmetric_MDS <- function(A, B) {
   output <- min(sqrt(Tx$ss), sqrt(Ty$ss))
   return(output)
 }
-permutation <- function(network, namesequence) {
-  # from package GraphAlignment, which is not compatible with my system
-  if (dim(network)[1] != length(namesequence)) {
-    stop("Dimension of network and length of namesequence must be equal.")
-  }
-  if (length(unique(namesequence)) < dim(network)[1]) {
-    stop("Each name in namesequence must be different.")
-  }
-  newnetwork <- network
-  while (!all(rownames(newnetwork) == namesequence)) {
-    for (i in 1:dim(network)[1]) {
-      if (rownames(network)[i] != namesequence[i]) {
-        columnposition <- which(rownames(network) == namesequence[i])
-        newnetwork[, i] <- network[, columnposition]
-        newnetwork[, columnposition] <- network[, i]
-        tempcolumn <- newnetwork[i, ]
-        newnetwork[i, ] <- newnetwork[columnposition, ]
-        newnetwork[columnposition, ] <- tempcolumn
-        temprowname <- colnames(newnetwork)[i]
-        colnames(newnetwork)[i] <- rownames(network)[columnposition]
-        rownames(newnetwork)[i] <- rownames(network)[columnposition]
-        colnames(newnetwork)[columnposition] <- temprowname
-        rownames(newnetwork)[columnposition] <- temprowname
-        network <- newnetwork
-      }
-    }
-  }
-  newnetwork
-}
 
 Simulation1 <- function(n, m, eps = 0, d, rep = 100, n0) {
   set.seed(110)
@@ -254,7 +225,6 @@ Simulation2.NMDS <- function(n_list, eps_list, alpha = 0.05, rep = 100) {
   power <- power[-1, ]
   return(power)
 }
-
 
 Simulation3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) {
   #' @param n_list: list of n
