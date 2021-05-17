@@ -64,6 +64,67 @@ A3.list <- GenAdjMatrix(group_target = group3, k = 4, t = t)
 A4.list <- GenAdjMatrix(group_target = group4, k = 4, t = t)
 A5.list <- GenAdjMatrix(group_target = group5, k = 4, t = t)
 
+# The function used to choose n0
+choose_n0 <- function(Alist, N, n0, d) {
+  #' @param Alist: a list of adjacency matrices
+  #' @return rst: including the observed test statistic, estimated test statistics and p-value
+  n <- dim(Alist[[1]])[1]
+  num <- length(Alist)
+  relabel1 <- sample(seq(num), num, replace = TRUE)
+  relabel2 <- sample(seq(num), num, replace = TRUE)
+  A <- B <- list()
+  A.bar <- B.bar <- matrix(0, n, n)
+  for (i in 1:num) {
+    idx1 <- relabel1[i]
+    A[[i]] <- Alist[[idx1]]
+    A.bar <- A.bar + Alist[[idx1]]
+    idx2 <- relabel2[i]
+    B[[i]] <- Alist[[idx2]]
+    B.bar <- B.bar + Alist[[idx2]]
+  }
+  A.bar <- A.bar / num
+  B.bar <- B.bar / num
+  
+  rho <- Spearman(A.bar, B.bar, num = d, res = FALSE)
+  rhovec1 <- rhovec2 <- numeric(N)
+  for (b in 1:N) {
+    A.perm <- B.perm <- matrix(0, n, n)
+    for (k in 1:num) {
+      A.temp <- A[[k]]
+      rownames(A.temp) <- colnames(A.temp) <- seq(n)
+      a <- seq(n)
+      s <- sample(seq(n), n0)
+      a[sort(s)] <- s
+      A.perm <- A.perm + permutation(A.temp, a)
+      B.temp <- B[[k]]
+      rownames(B.temp) <- colnames(B.temp) <- seq(n)
+      B.perm <- B.perm + permutation(B.temp, a)
+    }
+    A.perm <- A.perm / num
+    B.perm <- B.perm / num
+    rhovec1[b] <- Spearman(A.bar, A.perm, num = d, res = FALSE)
+    rhovec2[b] <- Spearman(B.bar, B.perm, num = d, res = FALSE)
+  }
+  pval1 <- sum(rhovec1 < rho) / length(rhovec1)
+  pval2 <- sum(rhovec2 < rho) / length(rhovec2)
+  rst <- data.frame("rho.hat1" = rhovec1,
+                    "rho.hat2" = rhovec2,
+                    "rho" = rho,
+                    "p.value" = max(pval1, pval2))
+  return(rst)
+}
+
+# An example to choose n0
+n0 <- 2
+d <- 5
+repN <- 100
+pval <- numeric(repN)
+for(i = 1:repN) {
+  rst <- choose_n0(A1.list, N = 1000, n0, d) 
+  pval[i] <- rst$p.value[1]
+  print(c(i, pval[i]))
+}
+
 # hypothesis testing starts here
 GenPvalue <- function(list1, list2, d, rep = 100, n0) {
   A_bar_1 <- (list1[[1]]+list1[[2]]+list1[[3]]+list1[[4]])/4
@@ -105,9 +166,9 @@ rowPvalue <- function(A, d, n0, rep) {
   )
 }
 
-tbl <- matrix(NA, nrow = 6, ncol = 5)
-for (d in seq(2, 7)) {
-  tbl[d - 1, ] <- rowPvalue(A1.list, d, n0 = 2, rep = 1000)
+tbl <- matrix(NA, nrow = 4, ncol = 5)
+for (d in seq(5, 8)) {
+  tbl[d - 1, ] <- rowPvalue(A1.list, d, n0 = 3, rep = 1000)
   print(c(d, tbl[d - 1, ]))
 }
 tbl
