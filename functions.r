@@ -278,7 +278,6 @@ Simulation2.NMDS <- function(n_list, eps_list, alpha = 0.05, rep = 100) {
         pow_nmds <- sum(nmds.hat > qt_nmds) / length(nmds.hat)
         power[idx, ] <- c(n, eps, pow_nmds)
       }
-
     }
   }
 
@@ -335,7 +334,6 @@ Simulation3 <- function(n_list, eps_list, rho, alpha = 0.05, rep = 100, d = 3) {
         pow_spm <- sum(rho.hat < qt) / length(rho.hat)
         power[idx, ] <- c(n, eps, s * n / log(n), pow_spm)
       }
-
     }
   }
 
@@ -467,7 +465,6 @@ Simulation5 <- function(n_list, phi, link,
     } else {
       power[idx, ] <- c(n, paste0(link, "_", phi), pow)
     }
-
   }
 
   return(power)
