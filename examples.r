@@ -2,32 +2,37 @@ library(ggplot2)
 library(ggthemes)
 library(ggsci)
 library(gap)
+
+setwd("") # set your own path
+source("./functions.r")
+
 ### Simulation 1
-pval_list <- Simulation1(n = 100, m = 5, eps = 0, d = 2, n0 = 5)
+pval_list <- Simulation1()
 qqunif(pval_list, type = "unif", logscale = FALSE)
 
 ### Simulation 2 - Bootstrap
 for (eps in seq(0.01, 0.05, by = 0.005)) {
-  power <- Simulation2.Bootstrap(n = 100, eps, d = 2, n0 = 8, alpha = 0.05)
+  power <- Simulation2.Bootstrap(eps)
   print(c(eps, power))
 }
 
 ### Simulation 2 - NMDS
 n_list <- c(50, 100, 150)
 eps_list <- seq(0, 0.1, 0.01)
-rst <- Simulation2.NMDS(n_list, eps_list, alpha = 0.05)
+rst <- Simulation2.NMDS(n_list, eps_list)
 print(rst)
 
 ### Simulation 3
-Simulation3(n_list = c(100, 200, 500, 1000),
-             eps_list = c(0, 0.02, 0.1, 0.2, 0.5, 1), rho = 5)
-
+n_list <- c(100, 200, 500, 1000)
+eps_list <- c(0, 0.02, 0.1, 0.2, 0.5, 1)
+pow <- Simulation3(n_list, eps_list, rho = 5)
+print(pow)
 
 ### Simulation 4
 dt <- Simulation4(nlist = seq(100, 1000, 1000),
                    slist = c(20, 40, 60), d = 3, tau = 0.7)
 
-# plots for simulation 5, please change the parameters correspondingly
+# plots for simulation 4, please change the parameters correspondingly
 dt$meanrank_v2 <- dt$meanrank - (1 - min(dt$prop, (0.3 * dt$n)) / (0.3 * dt$n))
 dt$meanrank_all <- dt$meanrankall - (1 - min(dt$prop, (dt$n)) / (dt$n))
 dt$prop <- as.character(dt$prop)
@@ -88,10 +93,21 @@ plt4_all +
         y = "Averaged median rank of Procrustes distance")
 
 ### Simulation 5
-for(phi in c(0.8, 1.5, 2, 4)) {
-  rst <- Simulation5(n_list = c(50, 100, 200, 500, 1000),
-                       phi = phi, link = "gaussian")
-  print(rst)
+n_list <- c(50, 100, 200, 500, 1000)
+for (phi in c(0.8, 1.5, 2, 4)) {
+  gaussian_rst <- Simulation5(n_list, phi, link = "gaussian")
+  print(gaussian_rst)
 }
-Simulation5(n_list = c(50, 100, 200, 500, 1000),
-              link = "logistic")
+
+logistic_rst <- Simulation5(n_list, link = "logistic")
+print(logistic_rst)
+
+### Simulation 6
+pval_sim6 <- Simulation6()
+print(pval_sim6)
+
+### Simulation 7
+for (gamma in seq(0, 0.5, 0.05)) {
+  pow_sim7 <- Simulation7(gamma)
+  print(c(gamma, pow_sim7))
+}
