@@ -1,6 +1,6 @@
 #path = ""
 mydata <- read.csv('./seizure.csv')
-source("../functions.R")
+source("../functions.r")
 
 selection <- names(mydata)
 group1 <- subset(mydata, y == 1, select = selection[2:179])
