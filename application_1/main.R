@@ -1,7 +1,7 @@
-# prepocessing
-source("../functions.R")
-pt <- read.table("./participants.csv", sep = ",",
-                 header = TRUE, stringsAsFactors = FALSE)
+# preprocessing
+source("../functions.r")
+
+pt <- read.table("./participants.csv", sep = ",", header = TRUE, stringsAsFactors = FALSE)
 n <- dim(pt)[1]
 you_id <- c()
 mid_id <- c()
@@ -19,7 +19,7 @@ for (i in 1:n) {
 }
 
 library(stringr)
-path <- "./counts"
+path <- './counts'
 setwd(path)
 files <- list.files(path = getwd(), pattern = "*.csv")
 dt <- list()
@@ -112,7 +112,7 @@ n0 <- 5
 N <- 1000
 repN <- 100
 
-for (i = 1:repN) {
+for (i in 1:repN) {
    rst <- choose_n0(file_list = old_list, N, n0, d)
    pval[i] <- rst$p.value[1]
    print(c(i, pval[i]))
@@ -300,7 +300,25 @@ library(doBy)
 phat.rank <- rank(p.upper, ties.method = "average")
 qhat.rank <- rank(q.upper, ties.method = "average")
 diff.rank <- abs(phat.rank - qhat.rank)
+
 A.star <- matrix(0, ncol = 128, nrow = 128)
 A.star[upper.tri(A.star)] <- (diff.rank > quantile(diff.rank, 0.7))
 A.star <- A.star + t(A.star)
-esti_impt_node <- which.maxn(colSums(A.star), n = 20)
+`%notin%` <- Negate(`%in%`)
+FPR <- c()
+TPR <- c()
+FNR <- c()
+key_node <- c(seq(10,14), 45, 47, 49, 50, 54, 55, 56, seq(67,71), seq(102,103), 105, 107, 108, 111, 112, 113, 119, 126)
+for (i in seq(1, 128, 10)){
+  esti_impt_node <- which.maxn(colSums(A.star), n = i)
+  FP <- sum(esti_impt_node %notin% key_node)
+  FPR <- c(FPR, FP/(128 - length(key_node)))
+  TP <- sum(esti_impt_node %in% key_node)
+  TPR <- c(TPR, TP/length(key_node))
+  FN <- sum(key_node %notin% esti_impt_node)
+  FNR <- c(FNR, FN/length(key_node))
+}
+
+round(FPR, 2)
+round(TPR, 2)
+round(FNR, 2)
