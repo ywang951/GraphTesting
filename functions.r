@@ -36,9 +36,7 @@ permutation <- function(network, namesequence) {
         rownames(newnetwork)[columnposition] <- temprowname
         network <- newnetwork
       }
-
     }
-
   }
 
   newnetwork
