@@ -3,7 +3,7 @@ This folder contains all R code files and the corresponding data used in the pap
 
 ## Simulations:
 - **functions.r** is a collection of all self-defined functions.
-- **example.r** contains the parameter settings used in the paper. Run this file then you can get all tables and figures showed in the simulation section and the supplementary materials.
+- **examples.r** contains the parameter settings used in the paper. Run this file then you can get all tables and figures showed in the simulation section and the supplementary materials.
 ## Applications:
 - The folder **application_1** includes the data and an R code file, named "main.r", used in the first application. The data is from Faskowitz, J., Yan, X., Zuo, X.-N. & Sporns, O. (2018), 'Weighted stochastic block models of the human connectome across the life span', Scientific Reports 8(1), 1–16.
 - The folder **application_2** includes the data and an R code files, named "main.r", used in the second application.  The data is available from the UCI Machine
